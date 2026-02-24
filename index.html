@@ -126,45 +126,81 @@ function agregarNota() {
   const texto = input.value.trim();
   if (texto === "") return;
 
-  crearNota(texto);
-  guardarNota(texto);
+  let notas = obtenerNotas();
+  notas.push(texto);
+  guardarNotas(notas);
 
+  renderizarNotas();
   input.value = "";
 }
 
-function crearNota(texto) {
+function renderizarNotas() {
   const zona = document.getElementById("zonaNotas");
+  zona.innerHTML = "";
 
-  const nota = document.createElement("div");
-  nota.classList.add("nota");
+  let notas = obtenerNotas();
 
-  // alternar color
-  const tipo = Math.random() > 0.5 ? "azul" : "morado";
-  nota.classList.add(tipo);
+  notas.forEach((texto, index) => {
+    const nota = document.createElement("div");
+    nota.classList.add("nota");
 
-  const contenido = document.createElement("div");
-  contenido.textContent = texto;
+    const tipo = Math.random() > 0.5 ? "azul" : "morado";
+    nota.classList.add(tipo);
 
-  const fecha = document.createElement("small");
-  fecha.textContent = new Date().toLocaleString();
+    const contenido = document.createElement("div");
+    contenido.textContent = texto;
 
-  nota.appendChild(contenido);
-  nota.appendChild(fecha);
+    const fecha = document.createElement("small");
+    fecha.textContent = new Date().toLocaleString();
 
-  zona.appendChild(nota);
+    const btnEditar = document.createElement("button");
+    btnEditar.textContent = "Editar";
+    btnEditar.onclick = () => editarNota(index);
+
+    const btnEliminar = document.createElement("button");
+    btnEliminar.textContent = "Eliminar";
+    btnEliminar.style.marginLeft = "6px";
+    btnEliminar.onclick = () => eliminarNota(index);
+
+    nota.appendChild(contenido);
+    nota.appendChild(fecha);
+    nota.appendChild(btnEditar);
+    nota.appendChild(btnEliminar);
+
+    zona.appendChild(nota);
+  });
 }
 
-function guardarNota(texto) {
-  let notas = JSON.parse(localStorage.getItem("muralNotas")) || [];
-  notas.push(texto);
+function editarNota(index) {
+  let notas = obtenerNotas();
+  const nuevoTexto = prompt("Editar nota:", notas[index]);
+  if (nuevoTexto === null) return;
+
+  notas[index] = nuevoTexto.trim();
+  guardarNotas(notas);
+  renderizarNotas();
+}
+
+function eliminarNota(index) {
+  let notas = obtenerNotas();
+  notas.splice(index, 1);
+  guardarNotas(notas);
+  renderizarNotas();
+}
+
+function obtenerNotas() {
+  return JSON.parse(localStorage.getItem("muralNotas")) || [];
+}
+
+function guardarNotas(notas) {
   localStorage.setItem("muralNotas", JSON.stringify(notas));
 }
 
 function cargarNotas() {
-  let notas = JSON.parse(localStorage.getItem("muralNotas")) || [];
-  notas.forEach(texto => crearNota(texto));
+  renderizarNotas();
 }
 </script>
 
 </body>
 </html>
+
