@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nuestro Mural</title>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital@1&display=swap');
@@ -23,86 +22,87 @@ body {
 
 h1 {
   text-align: center;
-  padding: 18px;
+  padding: 20px;
   margin: 0;
   font-family: 'Playfair Display', serif;
   font-style: italic;
-  font-size: 34px;
+  font-size: 36px;
   letter-spacing: 2px;
 }
 
-#fijados {
-  padding: 12px;
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(6px);
-}
-
-#chat {
+#zonaNotas {
   flex: 1;
-  overflow-y: auto;
-  padding: 18px;
+  padding: 30px;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  overflow-y: auto;
 }
 
-.mensaje {
-  padding: 14px;
-  border-radius: 16px;
-  max-width: 70%;
-  backdrop-filter: blur(8px);
-  background: rgba(255,255,255,0.08);
+.nota {
+  width: 200px;
+  min-height: 160px;
+  padding: 15px;
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  word-wrap: break-word;
+  position: relative;
+  transform: rotate(-2deg);
+  transition: 0.2s;
+}
+
+.nota:hover {
+  transform: scale(1.05);
 }
 
 .azul {
-  align-self: flex-start;
-  border-left: 3px solid #63b3ed;
+  background: rgba(99,179,237,0.15);
+  border-left: 4px solid #63b3ed;
 }
 
 .morado {
-  align-self: flex-end;
-  border-right: 3px solid #b794f4;
+  background: rgba(183,148,244,0.15);
+  border-left: 4px solid #b794f4;
+  transform: rotate(2deg);
 }
 
 small {
   opacity: 0.6;
   font-size: 11px;
-}
-
-button {
-  background: #6b46c1;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 10px;
-  cursor: pointer;
-  margin-top: 6px;
-  font-size: 12px;
-}
-
-button:hover {
-  opacity: 0.8;
+  display: block;
+  margin-top: 10px;
 }
 
 #inputArea {
   display: flex;
-  gap: 6px;
-  padding: 14px;
+  gap: 8px;
+  padding: 15px;
   background: rgba(0,0,0,0.25);
   backdrop-filter: blur(10px);
 }
 
 #mensajeInput {
   flex: 1;
-  padding: 10px;
-  border-radius: 10px;
+  padding: 12px;
+  border-radius: 12px;
   border: none;
+  outline: none;
 }
 
-img {
-  max-width: 100%;
-  margin-top: 8px;
+button {
+  background: #6b46c1;
+  color: white;
+  border: none;
   border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+button:hover {
+  opacity: 0.85;
 }
 </style>
 </head>
@@ -111,115 +111,59 @@ img {
 
 <h1>Nuestro Mural</h1>
 
-<div id="fijados"></div>
-<div id="chat"></div>
+<div id="zonaNotas"></div>
 
 <div id="inputArea">
-  <input type="text" id="mensajeInput" placeholder="Escribe algo...">
-  <input type="file" id="imagenInput">
-  <button onclick="enviar()">Enviar</button>
+  <input type="text" id="mensajeInput" placeholder="Escribe una nota...">
+  <button onclick="agregarNota()">Pegar</button>
 </div>
 
 <script>
-const supabase = window.supabase.createClient(
-  "PEGA_AQUI_TU_PROJECT_URL",
-  "PEGA_AQUI_TU_ANON_KEY"
-);
+document.addEventListener("DOMContentLoaded", cargarNotas);
 
-const usuariosPermitidos = ["Mellany", "Ella"]; 
-const usuario = prompt("Nombre:");
-
-if (!usuariosPermitidos.includes(usuario)) {
-  alert("No autorizado 💜");
-  throw new Error("No autorizado");
-}
-
-const chat = document.getElementById("chat");
-const fijadosDiv = document.getElementById("fijados");
-
-function crearMensajeHTML(msg) {
-  const div = document.createElement("div");
-  div.classList.add("mensaje");
-  div.classList.add(msg.usuario === usuario ? "morado" : "azul");
-
-  div.innerHTML = `
-    <strong>${msg.usuario}</strong><br>
-    ${msg.contenido || ""}
-    ${msg.imagen_url ? `<img src="${msg.imagen_url}">` : ""}
-    <br>
-    <small>${new Date(msg.creado_en).toLocaleString()}</small>
-  `;
-
-  if (msg.usuario === usuario) {
-    const borrarBtn = document.createElement("button");
-    borrarBtn.innerText = "Borrar";
-    borrarBtn.onclick = async () => {
-      await supabase.from("mensajes").delete().eq("id", msg.id);
-    };
-    div.appendChild(borrarBtn);
-
-    const fijarBtn = document.createElement("button");
-    fijarBtn.innerText = "Fijar";
-    fijarBtn.onclick = async () => {
-      await supabase.from("mensajes").update({ fijado: true }).eq("id", msg.id);
-    };
-    div.appendChild(fijarBtn);
-  }
-
-  return div;
-}
-
-async function cargarMensajes() {
-  const { data } = await supabase
-    .from("mensajes")
-    .select("*")
-    .order("creado_en", { ascending: true });
-
-  chat.innerHTML = "";
-  fijadosDiv.innerHTML = "<h3>📌 Notas Fijadas</h3>";
-
-  data.forEach(msg => {
-    const elemento = crearMensajeHTML(msg);
-    if (msg.fijado) {
-      fijadosDiv.appendChild(elemento);
-    } else {
-      chat.appendChild(elemento);
-    }
-  });
-}
-
-async function enviar() {
+function agregarNota() {
   const input = document.getElementById("mensajeInput");
-  const imagen = document.getElementById("imagenInput").files[0];
+  const texto = input.value.trim();
+  if (texto === "") return;
 
-  let imagen_url = null;
-
-  if (imagen) {
-    const nombre = Date.now() + "_" + imagen.name;
-    await supabase.storage.from("imagenes").upload(nombre, imagen);
-
-    imagen_url = supabase.storage
-      .from("imagenes")
-      .getPublicUrl(nombre).data.publicUrl;
-  }
-
-  await supabase.from("mensajes").insert([
-    { usuario, contenido: input.value, imagen_url }
-  ]);
+  crearNota(texto);
+  guardarNota(texto);
 
   input.value = "";
-  document.getElementById("imagenInput").value = "";
 }
 
-supabase
-  .channel("mensajes")
-  .on("postgres_changes",
-      { event: "*", schema: "public", table: "mensajes" },
-      () => cargarMensajes()
-  )
-  .subscribe();
+function crearNota(texto) {
+  const zona = document.getElementById("zonaNotas");
 
-cargarMensajes();
+  const nota = document.createElement("div");
+  nota.classList.add("nota");
+
+  // alternar color
+  const tipo = Math.random() > 0.5 ? "azul" : "morado";
+  nota.classList.add(tipo);
+
+  const contenido = document.createElement("div");
+  contenido.textContent = texto;
+
+  const fecha = document.createElement("small");
+  fecha.textContent = new Date().toLocaleString();
+
+  nota.appendChild(contenido);
+  nota.appendChild(fecha);
+
+  zona.appendChild(nota);
+}
+
+function guardarNota(texto) {
+  let notas = JSON.parse(localStorage.getItem("muralNotas")) || [];
+  notas.push(texto);
+  localStorage.setItem("muralNotas", JSON.stringify(notas));
+}
+
+function cargarNotas() {
+  let notas = JSON.parse(localStorage.getItem("muralNotas")) || [];
+  notas.forEach(texto => crearNota(texto));
+}
 </script>
 
 </body>
