@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Nuestro Mural</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital@1&display=swap');
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: radial-gradient(circle at 30% 30%, #6b46c1, transparent 40%),
+              radial-gradient(circle at 70% 70%, #3182ce, transparent 40%),
+              linear-gradient(135deg, #1a1a2e, #16213e);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+h1 {
+  text-align: center;
+  padding: 18px;
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 34px;
+  letter-spacing: 2px;
+}
+
+#fijados {
+  padding: 12px;
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(6px);
+}
+
+#chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mensaje {
+  padding: 14px;
+  border-radius: 16px;
+  max-width: 70%;
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.08);
+}
+
+.azul {
+  align-self: flex-start;
+  border-left: 3px solid #63b3ed;
+}
+
+.morado {
+  align-self: flex-end;
+  border-right: 3px solid #b794f4;
+}
+
+small {
+  opacity: 0.6;
+  font-size: 11px;
+}
+
+button {
+  background: #6b46c1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
+#inputArea {
+  display: flex;
+  gap: 6px;
+  padding: 14px;
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(10px);
+}
+
+#mensajeInput {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+}
+
+img {
+  max-width: 100%;
+  margin-top: 8px;
+  border-radius: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Nuestro Mural</h1>
+
+<div id="fijados"></div>
+<div id="chat"></div>
+
+<div id="inputArea">
+  <input type="text" id="mensajeInput" placeholder="Escribe algo...">
+  <input type="file" id="imagenInput">
+  <button onclick="enviar()">Enviar</button>
+</div>
+
+<script>
+const supabase = window.supabase.createClient(
+  "PEGA_AQUI_TU_PROJECT_URL",
+  "PEGA_AQUI_TU_ANON_KEY"
+);
+
+const usuariosPermitidos = ["Mellany", "Ella"]; 
+const usuario = prompt("Nombre:");
+
+if (!usuariosPermitidos.includes(usuario)) {
+  alert("No autorizado 💜");
+  throw new Error("No autorizado");
+}
+
+const chat = document.getElementById("chat");
+const fijadosDiv = document.getElementById("fijados");
+
+function crearMensajeHTML(msg) {
+  const div = document.createElement("div");
+  div.classList.add("mensaje");
+  div.classList.add(msg.usuario === usuario ? "morado" : "azul");
+
+  div.innerHTML = `
+    <strong>${msg.usuario}</strong><br>
+    ${msg.contenido || ""}
+    ${msg.imagen_url ? `<img src="${msg.imagen_url}">` : ""}
+    <br>
+    <small>${new Date(msg.creado_en).toLocaleString()}</small>
+  `;
+
+  if (msg.usuario === usuario) {
+    const borrarBtn = document.createElement("button");
+    borrarBtn.innerText = "Borrar";
+    borrarBtn.onclick = async () => {
+      await supabase.from("mensajes").delete().eq("id", msg.id);
+    };
+    div.appendChild(borrarBtn);
+
+    const fijarBtn = document.createElement("button");
+    fijarBtn.innerText = "Fijar";
+    fijarBtn.onclick = async () => {
+      await supabase.from("mensajes").update({ fijado: true }).eq("id", msg.id);
+    };
+    div.appendChild(fijarBtn);
+  }
+
+  return div;
+}
+
+async function cargarMensajes() {
+  const { data } = await supabase
+    .from("mensajes")
+    .select("*")
+    .order("creado_en", { ascending: true });
+
+  chat.innerHTML = "";
+  fijadosDiv.innerHTML = "<h3>📌 Notas Fijadas</h3>";
+
+  data.forEach(msg => {
+    const elemento = crearMensajeHTML(msg);
+    if (msg.fijado) {
+      fijadosDiv.appendChild(elemento);
+    } else {
+      chat.appendChild(elemento);
+    }
+  });
+}
+
+async function enviar() {
+  const input = document.getElementById("mensajeInput");
+  const imagen = document.getElementById("imagenInput").files[0];
+
+  let imagen_url = null;
+
+  if (imagen) {
+    const nombre = Date.now() + "_" + imagen.name;
+    await supabase.storage.from("imagenes").upload(nombre, imagen);
+
+    imagen_url = supabase.storage
+      .from("imagenes")
+      .getPublicUrl(nombre).data.publicUrl;
+  }
+
+  await supabase.from("mensajes").insert([
+    { usuario, contenido: input.value, imagen_url }
+  ]);
+
+  input.value = "";
+  document.getElementById("imagenInput").value = "";
+}
+
+supabase
+  .channel("mensajes")
+  .on("postgres_changes",
+      { event: "*", schema: "public", table: "mensajes" },
+      () => cargarMensajes()
+  )
+  .subscribe();
+
+cargarMensajes();
+</script>
+
+</body>
+</html>
